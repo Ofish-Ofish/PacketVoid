@@ -1,11 +1,13 @@
-typedef struct {
-    int drop_percent;
-    int duplicate_percent;
-    int target_port;
-    bool is_ipv6;
-} FaultRule;
+#ifndef injectorEngine_H
+#define injectorEngine_H
 
-int Engine_Initialize();
-int Engine_ApplyRule(FaultRule* rule);
-int Engine_StartLoop();
-void Engine_Shutdown();
+#include "injectorEngine.h"
+
+typedef void* FALTRULE;
+
+int engineInitDefault();
+int engineApplyRule(FALTRULE* hrule);
+int engineStartLoop();
+void engineDestroy();
+
+#endif
