@@ -65,3 +65,19 @@ dkms.conf
 *.db-wal
 *.vsidx
 *.ipch
+
+# Visual Studio Build Output Directories
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Oo]bj/
+[Bb]in/
+
+# Specific Build Output Files
+*.tlog
+*.log
+*.lastbuildstate
+*.recipe
+*.idb
+*.pdb
