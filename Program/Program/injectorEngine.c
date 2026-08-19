@@ -1,4 +1,5 @@
 #define WIN32_LEAN_AND_MEAN
+#include <ws2tcpip.h>
 #include <winsock2.h>
 #include <windivert.h>
 #include <stdio.h>
@@ -30,7 +31,6 @@ int engineApplyRule(FALTRULE* hrule) {
 int engineStartLoop() {
     // 1. The Filter String: Intercept ALL outbound TCP traffic to test
     const char* filter = "tcp or udp";
-
     // 2. Open the WinDivert handle
     windivertHandle = WinDivertOpen(filter, WINDIVERT_LAYER_NETWORK, 0, 0);
     if (windivertHandle == INVALID_HANDLE_VALUE) {
@@ -39,7 +39,6 @@ int engineStartLoop() {
     }
 
     printf("WinDivert handle opened successfully. Intercepting traffic...\n");
-
     char packet[65535]; //(65535 is max IP packet size)
     UINT packetLen;
     WINDIVERT_ADDRESS recvAddr;
@@ -48,14 +47,12 @@ int engineStartLoop() {
     PWINDIVERT_TCPHDR tcpHeader;
     PWINDIVERT_UDPHDR udpHeader;
 
-    // 4. The Intercept Loop
     while (true) {
         // Pull a packet from the network stack
         if (!WinDivertRecv(windivertHandle, packet, sizeof(packet), &packetLen, &recvAddr)) {
             // Stop if handle is closed or an error occurs
             break;
         }
-
         ipHeader = NULL;
         ipv6Header = NULL;
         tcpHeader = NULL;
@@ -86,10 +83,25 @@ int engineStartLoop() {
             dstPort = ntohs(udpHeader->DstPort);
         }
 
+        char srcStr[INET6_ADDRSTRLEN] = "?";
+        char dstStr[INET6_ADDRSTRLEN] = "?";
+
+        if (ipHeader != NULL) {
+            struct in_addr src, dst;
+            src.s_addr = ipHeader->SrcAddr;
+            dst.s_addr = ipHeader->DstAddr;
+            inet_ntop(AF_INET, &src, srcStr, sizeof(srcStr));
+            inet_ntop(AF_INET, &dst, dstStr, sizeof(dstStr));
+        }
+        else if (ipv6Header != NULL) {
+            inet_ntop(AF_INET6, ipv6Header->SrcAddr, srcStr, sizeof(srcStr));
+            inet_ntop(AF_INET6, ipv6Header->DstAddr, dstStr, sizeof(dstStr));
+        }
+
         if (tcpHeader != NULL || udpHeader != NULL) {
             if (tcpHeader != NULL) {
-                printf("[%s][%s][%s] SrcPort=%u DstPort=%u Flags=%s%s%s%s%s%s\n",
-                    direction, ipVersion, proto, srcPort, dstPort,
+                printf("[%s][%s][%s] %s:%u -> %s:%u Flags=%s%s%s%s%s%s\n",
+                    direction, ipVersion, proto, srcStr, srcPort, dstStr, dstPort,
                     tcpHeader->Syn ? "SYN " : "",
                     tcpHeader->Ack ? "ACK " : "",
                     tcpHeader->Fin ? "FIN " : "",
@@ -98,16 +110,15 @@ int engineStartLoop() {
                     tcpHeader->Urg ? "URG " : "");
             }
             else {
-                printf("[%s][%s][%s] SrcPort=%u DstPort=%u\n",
-                    direction, ipVersion, proto, srcPort, dstPort);
+                printf("[%s][%s][%s] %s:%u -> %s:%u\n",
+                    direction, ipVersion, proto, srcStr, srcPort, dstStr, dstPort);
             }
         }
-        // (Fault logic will go here in the next phase)
 
+        // (Fault logic will go here in the next phase)
         // Push the unmodified packet back into the network stack
         WinDivertSend(windivertHandle, packet, packetLen, &packetLen, &recvAddr);
     }
-
     return 0;
 }
 
