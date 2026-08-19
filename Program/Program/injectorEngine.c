@@ -87,10 +87,21 @@ int engineStartLoop() {
         }
 
         if (tcpHeader != NULL || udpHeader != NULL) {
-            printf("[%s][%s][%s] SrcPort=%u DstPort=%u\n",
-                direction, ipVersion, proto, srcPort, dstPort);
+            if (tcpHeader != NULL) {
+                printf("[%s][%s][%s] SrcPort=%u DstPort=%u Flags=%s%s%s%s%s%s\n",
+                    direction, ipVersion, proto, srcPort, dstPort,
+                    tcpHeader->Syn ? "SYN " : "",
+                    tcpHeader->Ack ? "ACK " : "",
+                    tcpHeader->Fin ? "FIN " : "",
+                    tcpHeader->Rst ? "RST " : "",
+                    tcpHeader->Psh ? "PSH " : "",
+                    tcpHeader->Urg ? "URG " : "");
+            }
+            else {
+                printf("[%s][%s][%s] SrcPort=%u DstPort=%u\n",
+                    direction, ipVersion, proto, srcPort, dstPort);
+            }
         }
-
         // (Fault logic will go here in the next phase)
 
         // Push the unmodified packet back into the network stack
