@@ -1,8 +1,10 @@
+#define WIN32_LEAN_AND_MEAN
+#include <winsock2.h>
+#include <windivert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <windows.h>
-#include "windivert.h"
+#pragma comment(lib, "ws2_32.lib")
 
 #include "injectorEngine.h"
 
@@ -27,7 +29,7 @@ int engineApplyRule(FALTRULE* hrule) {
 
 int engineStartLoop() {
     // 1. The Filter String: Intercept ALL outbound TCP traffic to test
-    const char* filter = "outbound and tcp";
+    const char* filter = "tcp or udp";
 
     // 2. Open the WinDivert handle
     windivertHandle = WinDivertOpen(filter, WINDIVERT_LAYER_NETWORK, 0, 0);
@@ -38,10 +40,13 @@ int engineStartLoop() {
 
     printf("WinDivert handle opened successfully. Intercepting traffic...\n");
 
-    // 3. The Packet Buffer (65535 is max IP packet size)
-    char packet[65535];
+    char packet[65535]; //(65535 is max IP packet size)
     UINT packetLen;
     WINDIVERT_ADDRESS recvAddr;
+    PWINDIVERT_IPHDR ipHeader;
+    PWINDIVERT_IPV6HDR ipv6Header;
+    PWINDIVERT_TCPHDR tcpHeader;
+    PWINDIVERT_UDPHDR udpHeader;
 
     // 4. The Intercept Loop
     while (true) {
@@ -49,6 +54,41 @@ int engineStartLoop() {
         if (!WinDivertRecv(windivertHandle, packet, sizeof(packet), &packetLen, &recvAddr)) {
             // Stop if handle is closed or an error occurs
             break;
+        }
+
+        ipHeader = NULL;
+        ipv6Header = NULL;
+        tcpHeader = NULL;
+        udpHeader = NULL;
+
+        WinDivertHelperParsePacket(
+            packet, packetLen,
+            &ipHeader, &ipv6Header,
+            NULL, NULL, NULL,
+            &tcpHeader, &udpHeader,
+            NULL, NULL,
+            NULL, NULL
+        );
+
+        const char* ipVersion = ipHeader ? "IPv4" : (ipv6Header ? "IPv6" : "Unknown");
+        const char* direction = recvAddr.Outbound ? "OUTBOUND" : "INBOUND";
+        UINT16 srcPort = 0, dstPort = 0;
+        const char* proto = "Unknown";
+
+        if (tcpHeader != NULL) {
+            proto = "TCP";
+            srcPort = ntohs(tcpHeader->SrcPort);
+            dstPort = ntohs(tcpHeader->DstPort);
+        }
+        else if (udpHeader != NULL) {
+            proto = "UDP";
+            srcPort = ntohs(udpHeader->SrcPort);
+            dstPort = ntohs(udpHeader->DstPort);
+        }
+
+        if (tcpHeader != NULL || udpHeader != NULL) {
+            printf("[%s][%s][%s] SrcPort=%u DstPort=%u\n",
+                direction, ipVersion, proto, srcPort, dstPort);
         }
 
         // (Fault logic will go here in the next phase)
