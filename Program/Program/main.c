@@ -2,7 +2,14 @@
 #include <stdlib.h>
 #include "injectorEngine.h"
 
-int main() {
+int main(int argc, char* argv[]) {
+
+	printf("PacketVoid Network Fault Injector v1.0\n");
+
+	printf("%s", argv[1]);
+
+    return 0;
+
     printf("Starting PacketVoid Network Fault Injector...\n");
 
     if (engineInitDefault() != 0) {

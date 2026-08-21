@@ -3,10 +3,8 @@
 
 #include "injectorEngine.h"
 
-typedef void* FALTRULE;
-
 int engineInitDefault();
-int engineApplyRule(FALTRULE* hrule);
+int engineApplyRule();
 int engineStartLoop();
 void engineDestroy();
 

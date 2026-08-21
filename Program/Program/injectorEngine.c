@@ -10,15 +10,9 @@
 #include "injectorEngine.h"
 
 
-typedef struct {
-    int drop_percent;
-    int duplicate_percent;
-    int target_port;
-    bool is_ipv6;
-} FaultRule;
+
 
 static HANDLE windivertHandle = NULL;
-static FaultRule activeRule = { 0 };
 
 int engineInitDefault() {
     const char* filter = "tcp or udp";
@@ -32,7 +26,7 @@ int engineInitDefault() {
     return 0;
 }
 
-int engineApplyRule(FALTRULE* hrule) {
+int engineApplyRule() {
     return 0;
 }
 
