@@ -1,12 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "injectorEngine.h"
+#include "parser.h"
 
 int main(int argc, char* argv[]) {
 
 	printf("PacketVoid Network Fault Injector v1.0\n");
 
-	printf("%s", argv[1]);
+    FALTRULE* rulesArray;
+
+    rulesArray = createRulesArray(argc, argv);
 
     return 0;
 

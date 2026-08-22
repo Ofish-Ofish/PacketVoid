@@ -24,5 +24,13 @@
     <ClCompile Include="injectorEngine.c">
       <Filter>Resource Files</Filter>
     </ClCompile>
+    <ClCompile Include="parser.c">
+      <Filter>Resource Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="parser.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

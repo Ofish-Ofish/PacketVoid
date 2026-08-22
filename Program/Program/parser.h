@@ -1,17 +1,9 @@
-#ifndef parser_H
-#define parser_H
+#ifndef PARSER_H
+#define PARSER_H
 
-#include "parser.h"
+typedef void* FAULTRULE;
 
-
-typedef void* FALTRULE;
-
-FALTRULE* createRulesArray();
-
-FALTRULE parseRule();
-
-int destroyRulesArray(FALTRULE* rulesArray);
-
-
+FAULTRULE* createRulesArray(int argc, char* argv[]);
+int destroyRulesArray(FAULTRULE* rulesArray);
 
 #endif

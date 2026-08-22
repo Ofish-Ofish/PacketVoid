@@ -138,6 +138,10 @@
     <ClCompile Include="injectorEngine.c" />
     <ClCompile Include="injectorEngine.h" />
     <ClCompile Include="main.c" />
+    <ClCompile Include="parser.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="parser.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
