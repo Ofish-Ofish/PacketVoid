@@ -7,7 +7,7 @@ int main(int argc, char* argv[]) {
 
 	printf("PacketVoid Network Fault Injector v1.0\n");
 
-    FALTRULE* rulesArray;
+    FAULTRULE* rulesArray;
 
     rulesArray = createRulesArray(argc, argv);
 

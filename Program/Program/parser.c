@@ -5,26 +5,6 @@
 #include <string.h>
 #include "parser.h"
 
-typedef enum action {
-    DROP = 1,
-    DELAY = 2,
-    DUP = 3,
-    CORRUPT = 4,
-} Action;
-
-typedef enum dir {
-    DIR_IN,
-    DIR_OUT,
-    DIR_BOTH
-} Dir;
-
-typedef enum proto {
-    ANY,
-    TCP,
-    UDP,
-    ICMP
-} Proto;
-
 typedef struct {
     Action action;
     UINT32 ip;
@@ -124,22 +104,23 @@ int applyParam(FaultRule* rule, char* key, char* value) {
 }
 
 static int parseParamString(FaultRule* rule, char* paramStr) {
-    char* token = strtok(paramStr, ",");
+    char* context = NULL;
+    char* token = strtok_s(paramStr, ",", &context);
     while (token != NULL) {
         char* eq = strchr(token, '=');
         if (eq == NULL) {
             printf("Error: Malformed parameter '%s'. Expected 'key=value'.\n", token);
             return -1;
         }
-        *eq = '\0';    
+        *eq = '\0';
         char* key = token;
-        char* value = eq + 1; 
+        char* value = eq + 1;
 
         if (applyParam(rule, key, value) != 0) {
             return -1;
         }
 
-        token = strtok(NULL, ",");
+        token = strtok_s(NULL, ",", &context);
     }
     return 0;
 }
@@ -187,8 +168,12 @@ FAULTRULE* createRulesArray(int argc, char* argv[]) {
         }
 
         char paramBuf[256];
-        strncpy(paramBuf, argv[i + 1], sizeof(paramBuf) - 1);
-        paramBuf[sizeof(paramBuf) - 1] = '\0';
+        if (strncpy_s(paramBuf, sizeof(paramBuf), argv[i + 1], _TRUNCATE) != 0 &&
+            errno != STRUNCATE) {
+            fprintf(stderr, "Error: Failed to copy parameter string.\n");
+            free(rulesArray);
+            return NULL;
+        }
 
         if (parseParamString(&rule, paramBuf) != 0) {
             free(rulesArray);
