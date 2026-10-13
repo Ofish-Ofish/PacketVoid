@@ -29,7 +29,7 @@ typedef void* FAULTRULE;
 // constactor
 FAULTRULE ruleInit(void);
 
-/* getters */
+// getters
 Action getRuleAction(FAULTRULE hrule);
 Proto getRuleProtocol(FAULTRULE hrule);
 Dir getRuleDir(FAULTRULE hrule);
@@ -38,6 +38,7 @@ int getRuleRate(FAULTRULE hrule);      /* percent */
 int getRuleDelayMs(FAULTRULE hrule);
 UINT32 getRuleIp(FAULTRULE hrule);        /* network order, 0 = any */
 
+//setters
 Status setRuleAction(FAULTRULE hrule, Action action);
 Status setRuleProtocol(FAULTRULE hrule, Proto protocol);
 Status setRuleDir(FAULTRULE hrule, Dir direction);
