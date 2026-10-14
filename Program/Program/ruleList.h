@@ -19,7 +19,6 @@ bool ruleListIsEmpty(RULELIST hRuleList);
 
 //setters
 Status ruleListPushBack(RULELIST hRuleList, FAULTRULE hRule);
-Status ruleListPopBack(RULELIST hRuleList);
 
 //destructor
 void ruleListDestroy(RULELIST* phRuleList);
