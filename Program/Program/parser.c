@@ -1,16 +1,77 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <string.h>
+#include <limits.h>
 #include "parser.h"
 #include "ruleList.h"
 #include "rule.h"
 
-bool isParamValidForAction(Action action, const char* key) {
+static Status parseInt(const char* text, int* out);
+
+static Action parseAction(const char* text);
+
+static bool isParamValidForAction(Action action, const char* key);
+
+static Status applyParam(FAULTRULE rule, const char* key, const char* value);
+
+static Status parseParams(FAULTRULE rule, char* paramStr);
+
+static FAULTRULE parseRule(const char* actionText, char* paramText);
+
+static Status parseInt(const char* hText, int* out) {
+    if (hText == NULL || *hText == '\0') {
+        return FAILURE;
+    }
+
+    char *pEnd;
+    errno = 0;
+    
+    long val = strtol(hText, &pEnd, 10);
+
+    if ((errno == ERANGE && (val == LONG_MAX || val == LONG_MIN)) || 
+        (val > INT_MAX || val < INT_MIN)) {
+        return FAILURE; 
+    }
+
+    if (pEnd == hText) {
+        return FAILURE; 
+    }
+
+    if (*pEnd != '\0') {
+        return FAILURE; 
+    }
+
+    *out = (int)val;
+    return SUCCESS;
+}
+
+static Action parseAction(const char* text) {
+    if (text == NULL) {
+        return NO_ACTION;
+    }
+
+    if (strcmp(text, "--drop") == 0) {
+        return DROP;
+    }
+    else if (strcmp(text, "--delay") == 0) {
+        return DELAY;
+    }
+    else if(strcmp(text, "--dup") == 0) {
+        return DUP;
+    }
+    else if (strcmp(text, "--corrupt") == 0) {
+        return CORRUPT;
+    }
+    return NO_ACTION;
+}
+
+static bool isParamValidForAction(Action action, const char* key) {
     if (strcmp(key, "ip") == 0 || strcmp(key, "port") == 0 ||
         strcmp(key, "proto") == 0 || strcmp(key, "dir") == 0) {
-        return false;
+        return true;
     }
 
     switch (action) {
@@ -25,42 +86,33 @@ bool isParamValidForAction(Action action, const char* key) {
         return strcmp(key, "rate") == 0;
 
     default:
-        return 0;
+        return false;
     }
 }
 
-int applyParam(FAILURE rule, char* key, char* value) {
-    if (!isParamValidForAction(rule->action, key)) {
+static Status applyParam(FAULTRULE rule, const char* key, const char* value) {
+    int val = 0;
+    if (!isParamValidForAction(getRuleAction(rule), key)) {
         printf("Error: Parameter '%s' is not valid for this action.\n", key);
-        return -1;
+        return FAILURE;
     }
-
     if (strcmp(key, "port") == 0) {
-        char* endptr;
-        long port = strtol(value, &endptr, 10);
-        if (*endptr != '\0' || port < 0 || port > 65535) {
+        if (parseInt(value, &val) == FAILURE || setRulePort(rule, val) == FAILURE)  {
             printf("Error: Invalid port value '%s'.\n", value);
-            return -1;
+            return FAILURE;
         }
-        setRulePort(rule, (int)port);
     }
     else if (strcmp(key, "rate") == 0) {
-        char* endptr;
-        long rate = strtol(value, &endptr, 10);
-        if (*endptr != '\0' && strcmp(endptr, "%") != 0) {
+        if (parseInt(value, &val) == FAILURE || setRuleRate(rule, val) == FAILURE) {
             printf("Error: Invalid rate value '%s'.\n", value);
-            return -1;
+            return FAILURE;
         }
-        setRuleRate(rule, (int)rate);
     }
     else if (strcmp(key, "ms") == 0) {
-        char* endptr;
-        long ms = strtol(value, &endptr, 10);
-        if (*endptr != '\0' || ms < 0) {
-            printf("Error: Invalid ms value '%s'.\n", value);
-            return -1;
+        if (parseInt(value, &val) == FAILURE || setRuleDelayMs(rule, val) == FAILURE) {
+            printf("Error: Invalid delayMs value '%s'.\n", value);
+            return FAILURE;
         }
-        setRuleDelayMs(rule, (int)ms);
     }
     else if (strcmp(key, "proto") == 0) {
         if (strcmp(value, "tcp") == 0) setRuleProtocol(rule, TCP);
@@ -68,113 +120,104 @@ int applyParam(FAILURE rule, char* key, char* value) {
         else if (strcmp(value, "icmp") == 0) setRuleProtocol(rule, ICMP);
         else {
             printf("Error: Unknown protocol '%s'.\n", value);
-            return -1;
+            return FAILURE;
         }
     }
     else if (strcmp(key, "dir") == 0) {
-        if (strcmp(value, "in") == 0) rule->direction = DIR_IN;
-        else if (strcmp(value, "out") == 0) rule->direction = DIR_OUT;
-        else if (strcmp(value, "both") == 0) rule->direction = DIR_BOTH;
+        if (strcmp(value, "in") == 0) setRuleDir(rule, DIR_IN);
+        else if (strcmp(value, "out") == 0) setRuleDir(rule, DIR_OUT);
+        else if (strcmp(value, "both") == 0) setRuleDir(rule, DIR_BOTH);
         else {
             printf("Error: Unknown direction '%s'.\n", value);
-            return -1;
+            return FAILURE;
         }
     }
     else if (strcmp(key, "ip") == 0) {
         struct in_addr addr;
         if (inet_pton(AF_INET, value, &addr) != 1) {
             printf("Error: Invalid IP address '%s'.\n", value);
-            return -1;
+            return FAILURE;
         }
-        setRuleIp(rule, addr);
+        setRuleIp(rule, addr.s_addr);
     }
     else {
         printf("Error: Unknown parameter '%s'.\n", key);
-        return -1;
+        return FAILURE;
     }
-    return 0;
+    return SUCCESS;
 }
 
-static int parseParamString(FAILURE rule, char* paramStr) {
+static Status parseParams(FAULTRULE rule, char* paramStr) {
     char* context = NULL;
-    char* token = strtok_s(paramStr, ",", &context);
-    while (token != NULL) {
-        char* eq = strchr(token, '=');
-        if (eq == NULL) {
-            printf("Error: Malformed parameter '%s'. Expected 'key=value'.\n", token);
-            return -1;
-        }
-        *eq = '\0';
-        char* key = token;
-        char* value = eq + 1;
+    char* rulePairs = strtok_s(paramStr, ",", &context);
 
-        if (applyParam(rule, key, value) != 0) {
-            return -1;
+    while (rulePairs != NULL) {
+        char* equalSignAdress = strchr(rulePairs, '=');
+        if (equalSignAdress == NULL) {
+            printf("Error: Malformed parameter '%s'. Expected 'key=value'.\n", rulePairs);
+            return FAILURE;
         }
 
-        token = strtok_s(NULL, ",", &context);
+        *equalSignAdress = '\0';
+        char* key = rulePairs;
+        char* value = equalSignAdress + 1;
+
+        if (applyParam(rule, key, value) != SUCCESS) {
+            return FAILURE;
+        }
+
+        rulePairs = strtok_s(NULL, ",", &context);
     }
-    return 0;
+    return SUCCESS;
 }
 
-RULELIST createRulesArray(int argc, char* argv[]) {
-    int i = 1;
-    int j = 0;
-    RULELIST* rulesArray = ruleListInit();
+static FAULTRULE parseRule(const char* actionStr, char* paramStr) {
+    Action action = parseAction(actionStr);
+    if (action == NO_ACTION) {
+        printf("Error: Unknown action '%s'.\n", actionStr);
+        return NULL;
+    }
+    FAULTRULE rule = ruleInit();
+    if (rule == NULL) {
+        return NULL;
+    }   
+
+    setRuleAction(rule, action);
     
+    if (parseParams(rule, paramStr) == FAILURE) {
+        ruleDestroy(&rule);
+        return NULL;
+    }
+
+    return rule;
+}
+
+RULELIST parseArgs(int argc, char* argv[]) {
+
+    if (argc < 3 || (argc - 1) % 2 != 0) {
+        printf("Usage: %s --ACTION key=value,... [--ACTION key=value,...]\n", argv[0]);
+        return NULL;
+    }
+
+    RULELIST rulesArray = ruleListInit();
+
     if (rulesArray == NULL) {
         printf("Error: Failed to allocate memory for rules array.\n");
         return NULL;
     }
 
-    while (i < argc) {
-        if (strncmp(argv[i], "--", 2)) {
-            printf("Error: Invalid argument format. Expected '--ACTION'.\n");
-            free(rulesArray);
+    for (int i = 1; i < argc; i+=2)  {
+        FAULTRULE rule = parseRule(argv[i], argv[i + 1]);
+        if (rule == NULL) {
+            ruleListDestroy(&rulesArray);
             return NULL;
         }
-
-        FAULTRULE rule = ruleInit();
-
-        if (strncmp(argv[i], "--drop", 6) == 0) {
-            setRuleAction(rule, DROP);
-        }
-        else if (strncmp(argv[i], "--delay", 7) == 0) {
-            setRuleAction(rule, DELAY);
-        }
-        else if (strncmp(argv[i], "--dup", 5) == 0) {
-            setRuleAction(rule, DUP);
-        }
-        else if (strncmp(argv[i], "--corrupt", 9) == 0) {
-            setRuleAction(rule, CORRUPT);
-        }
-        else {
-            printf("Error: Unknown action '%s'.\n", argv[i]);
-            ruleListDestroy(rulesArray);
+        if (ruleListPushBack(rulesArray, rule) != SUCCESS) {
+            ruleDestroy(&rule);
+            ruleListDestroy(&rulesArray);
             return NULL;
         }
-
-        if (i + 1 >= argc) {
-            printf("Error: Missing parameters for action '%s'.\n", argv[i]);
-            ruleListDestroy(rulesArray);
-            return NULL;
-        }
-
-        char paramBuf[256];
-        if (strncpy_s(paramBuf, sizeof(paramBuf), argv[i + 1], _TRUNCATE) != 0 && errno != STRUNCATE) {
-            fprintf(stderr, "Error: Failed to copy parameter string.\n");
-            ruleListDestroy(rulesArray);
-            return NULL;
-        }
-
-        if (parseParamString(&rule, paramBuf) != 0) {
-            ruleListDestroy(rulesArray);
-            return NULL;
-        }
-
-        ruleListPushBack(rulesArray, rule);
-        i += 2;
-        j += 1;
     }
+
     return rulesArray;
 }
