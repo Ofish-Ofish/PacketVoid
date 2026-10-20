@@ -9,7 +9,7 @@ int main(int argc, char* argv[]) {
 
     FAULTRULE* rulesArray;
 
-    rulesArray = createRulesArray(argc, argv);
+    rulesArray = parseArgs(argc, argv);
 
     return 0;
 

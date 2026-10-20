@@ -1,11 +1,15 @@
-#ifndef injectorEngine_H
-#define injectorEngine_H
+#ifndef INJECTORENGINE_H
+#define INJECTORENGINE_H
 
-#include "injectorEngine.h"
+#include <stdbool.h>
+#include "status.h"
+#include "ruleList.h"
 
-int engineInitDefault();
-int engineApplyRule();
-int engineStartLoop();
-void engineDestroy();
+typedef void* ENGINE;
+
+ENGINE engineInit(RULELIST hRules, bool verbose);
+Status engineRun(ENGINE hEngine);
+void engineStop(ENGINE hEngine);
+void engineDestroy(ENGINE* phEngine);
 
 #endif
