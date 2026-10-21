@@ -107,6 +107,54 @@ static Status packetParse(const void* data, UINT len, bool outbound, PacketInfo*
     return SUCCESS;
 }
 
+static void packetLog(const PacketInfo* info) {
+    const char* ipVersion = "IPv4";
+    const char* direction = (info->outbound == true ? "OUTBOUND" : "INBOUND");
+    char* Protocol;
+
+    if (info->proto == TCP) {
+        Protocol = "TCP";
+    } 
+    else if (info->proto == UDP) {
+        Protocol = "UDP";
+    } 
+    else if (info->proto == ICMP) {
+        Protocol = "ICMP";
+    } 
+    else {
+        Protocol = "UNSUPPORTED PROTOCOL";
+    }
+
+    printf("Packet From ");
+    printf("%u.%u.%u.%u ", (info->srcIp >> 24) & 0xFF, (info->srcIp >> 16) & 0xFF, (info->srcIp >> 8)  & 0xFF, info->srcIp & 0xFF);
+    printf('To: ');
+    printf("%u.%u.%u.%u ", (info->dstIp >> 24) & 0xFF, (info->dstIp >> 16) & 0xFF, (info->dstIp >> 8)  & 0xFF, info->dstIp & 0xFF);
+    printf("Using %s Protocol From Port: %d To Port %d\n", Protocol, info->srcPort, info->dstPort);
+}
+
+static Status sendPacket(Engine* e, const void* packet, UINT len, const WINDIVERT_ADDRESS* addr) {
+    if (WinDivertSend(e->handle, packet, len, NULL, &addr) == TRUE) {
+        return SUCCESS;
+    }
+    return FAILURE;
+}
+
+static void processPacket(Engine* e, char* packet, UINT len, WINDIVERT_ADDRESS* addr) {
+    if (e == NULL || packet == NULL || addr == NULL || len == 0) {
+        return;
+    }
+
+    if (e->verbose) {
+        packetLog()
+    }
+
+    Status status = sendPacket(e, packet, len, addr);
+    if (status != SUCCESS && e->verbose) {
+        printf("[Engine] Failed to re-inject packet (len: %u)\n", len);
+    }
+}
+
+
 void engineDestroy(ENGINE* phEngine) {
     Engine* pEngine = (Engine*)*phEngine;
     WinDivertClose(pEngine->handle);
