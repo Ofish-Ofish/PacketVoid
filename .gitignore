@@ -1,48 +1,23 @@
-# Prerequisites
+# ==========================================
+# Prerequisites & Intermediate Files
+# ==========================================
 *.d
-
-# Object files
 *.o
 *.ko
 *.obj
 *.elf
-
-# Linker output
 *.ilk
 *.map
 *.exp
-
-# Precompiled Headers
 *.gch
 *.pch
-
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
-
-# Debug files
 *.dSYM/
 *.su
 *.idb
 *.pdb
+*.dwo
 
-# Kernel Module Compile Results
+# Kernel Module Artifacts
 *.mod*
 *.cmd
 .tmp_versions/
@@ -51,10 +26,9 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-# debug information files
-*.dwo
-
-# Visual Studio Cache and Local Files
+# ==========================================
+# Visual Studio Cache & User Files
+# ==========================================
 .vs/
 *.user
 *.suo
@@ -66,7 +40,15 @@ dkms.conf
 *.vsidx
 *.ipch
 
+# Specific Build Output Files
+*.tlog
+*.log
+*.lastbuildstate
+*.recipe
+
+# ==========================================
 # Visual Studio Build Output Directories
+# ==========================================
 [Dd]ebug/
 [Rr]elease/
 x64/
@@ -74,10 +56,30 @@ x86/
 [Oo]bj/
 [Bb]in/
 
-# Specific Build Output Files
-*.tlog
-*.log
-*.lastbuildstate
-*.recipe
-*.idb
-*.pdb
+# ==========================================
+# Binaries, Libraries & Shared Objects
+# ==========================================
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+*.so
+*.so.*
+*.dylib
+*.sys
+
+# Ignore all libraries and DLLs by default...
+*.lib
+*.a
+*.la
+*.lo
+*.dll
+
+# ==========================================
+# Whitelist Vendor Dependencies
+# ==========================================
+# Allow everything inside any vendor directory (including .lib, .dll, .sys)
+!**/vendor/**
+!**/vendor/**/

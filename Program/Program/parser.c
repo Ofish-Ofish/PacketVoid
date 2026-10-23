@@ -5,6 +5,7 @@
 #include <ws2tcpip.h>
 #include <string.h>
 #include <limits.h>
+#pragma comment(lib, "ws2_32.lib")
 #include "parser.h"
 #include "ruleList.h"
 #include "rule.h"

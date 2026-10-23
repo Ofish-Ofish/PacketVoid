@@ -11,7 +11,7 @@ int main(int argc, char* argv[]) {
 
     rulesArray = parseArgs(argc, argv);
 
-    if (rules == NULL) {
+    if (rulesArray == NULL) {
         return 1;
     }
 
@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
     }
 
     engineDestroy(&e);
-    ruleListDestroy(&rules)
+    ruleListDestroy(&rulesArray);
     printf("Injector shut down gracefully.\n");
 
     return 0;

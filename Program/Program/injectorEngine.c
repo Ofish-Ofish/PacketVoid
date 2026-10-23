@@ -1,13 +1,18 @@
 #define WIN32_LEAN_AND_MEAN
+#define PACKET_BUF_SIZE 65535
+
 #include <ws2tcpip.h>
 #include <winsock2.h>
 #include <windivert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 #pragma comment(lib, "ws2_32.lib")
 #include "injectorEngine.h"
 #include "rule.h"
+
+typedef void* DELAYQUEUE;
 
 typedef struct {
     bool outbound;
@@ -40,7 +45,7 @@ static void applyRule(Engine* e, FAULTRULE r, char* packet, UINT len, WINDIVERT_
 static void processPacket(Engine* e, char* packet, UINT len, WINDIVERT_ADDRESS* addr);
 
 ENGINE engineInit(RULELIST hRules, bool verbose) {
-    Engine* pEngine = (Engine)*malloc(sizeof(Engine));
+    Engine* pEngine = (Engine*)malloc(sizeof(Engine));
 
     if (pEngine == NULL) {
         return NULL;
@@ -58,7 +63,7 @@ ENGINE engineInit(RULELIST hRules, bool verbose) {
         return NULL;
     }
 
-    return engine;
+    return pEngine;
 }
 
 static Status packetParse(const void* data, UINT len, bool outbound, PacketInfo* out) {
@@ -170,25 +175,25 @@ void engineDestroy(ENGINE* phEngine) {
 }
 
 Status engineRun(ENGINE hEngine) {
-    Engine* e = (engine*)hEngine;
-    char* packet = malloc(65535);
+    Engine* e = (Engine*)hEngine;
+    char* packet = malloc(PACKET_BUF_SIZE);
     if (packet == NULL) {
         return FAILURE;
     }
-    UNIT len;
+    UINT len;
     WINDIVERT_ADDRESS addr;
 
     while (true) {
-        if (!WinDivertRecv(e->handle, packet, sizeof(packet), &len, &addr)) {
+        if (!WinDivertRecv(e->handle, packet, PACKET_BUF_SIZE, &len, &addr)) {
             if (GetLastError() == ERROR_NO_DATA) {
                 break;
             }
             continue;
         }
+        processPacket(e, packet, len, &addr);
     }
-    processPacket(e, packet, len &addr);
+    free(packet);
     return SUCCESS;
-
 }
 
 // int engineApplyRule() {

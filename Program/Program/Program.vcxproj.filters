@@ -21,15 +21,30 @@
     <ClCompile Include="main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="injectorEngine.c">
-      <Filter>Resource Files</Filter>
+    <ClCompile Include="ruleList.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="rule.c">
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="parser.c">
-      <Filter>Resource Files</Filter>
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="injectorEngine.c">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="parser.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="rule.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ruleList.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="status.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
