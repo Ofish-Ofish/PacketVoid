@@ -108,58 +108,87 @@ static Status packetParse(const void* data, UINT len, bool outbound, PacketInfo*
 }
 
 static void packetLog(const PacketInfo* info) {
-    const char* ipVersion = "IPv4";
-    const char* direction = (info->outbound == true ? "OUTBOUND" : "INBOUND");
-    char* Protocol;
+    const char* direction = info->outbound ? "OUTBOUND" : "INBOUND";
+    const char* protocol;
 
     if (info->proto == TCP) {
-        Protocol = "TCP";
-    } 
+        protocol = "TCP";
+    }
     else if (info->proto == UDP) {
-        Protocol = "UDP";
-    } 
+        protocol = "UDP";
+    }
     else if (info->proto == ICMP) {
-        Protocol = "ICMP";
-    } 
+        protocol = "ICMP";
+    }
     else {
-        Protocol = "UNSUPPORTED PROTOCOL";
+        protocol = "OTHER";
     }
 
-    printf("Packet From ");
-    printf("%u.%u.%u.%u ", (info->srcIp >> 24) & 0xFF, (info->srcIp >> 16) & 0xFF, (info->srcIp >> 8)  & 0xFF, info->srcIp & 0xFF);
-    printf('To: ');
-    printf("%u.%u.%u.%u ", (info->dstIp >> 24) & 0xFF, (info->dstIp >> 16) & 0xFF, (info->dstIp >> 8)  & 0xFF, info->dstIp & 0xFF);
-    printf("Using %s Protocol From Port: %d To Port %d\n", Protocol, info->srcPort, info->dstPort);
+    struct in_addr src, dst;
+    char srcStr[INET_ADDRSTRLEN];
+    char dstStr[INET_ADDRSTRLEN];
+
+    src.s_addr = info->srcIp;
+    dst.s_addr = info->dstIp;
+    inet_ntop(AF_INET, &src, srcStr, sizeof(srcStr));
+    inet_ntop(AF_INET, &dst, dstStr, sizeof(dstStr));
+
+    if (info->srcPort >= 0) {
+        printf("[%s][%s] %s:%d -> %s:%d\n", direction, protocol, srcStr, info->srcPort, dstStr, info->dstPort);
+    }
+    else {
+        printf("[%s][%s] %s -> %s\n", direction, protocol, srcStr, dstStr);
+    }
 }
 
 static Status sendPacket(Engine* e, const void* packet, UINT len, const WINDIVERT_ADDRESS* addr) {
-    if (WinDivertSend(e->handle, packet, len, NULL, &addr) == TRUE) {
+    if (WinDivertSend(e->handle, packet, len, NULL, addr)) {
         return SUCCESS;
     }
     return FAILURE;
 }
 
 static void processPacket(Engine* e, char* packet, UINT len, WINDIVERT_ADDRESS* addr) {
-    if (e == NULL || packet == NULL || addr == NULL || len == 0) {
-        return;
+    PacketInfo info;
+
+    if (packetParse(packet, len, addr->Outbound, &info) == SUCCESS) {
+        if (e->verbose) {
+            packetLog(&info);
+        }
     }
 
-    if (e->verbose) {
-        packetLog()
-    }
-
-    Status status = sendPacket(e, packet, len, addr);
-    if (status != SUCCESS && e->verbose) {
+    if (sendPacket(e, packet, len, addr) != SUCCESS && e->verbose) {
         printf("[Engine] Failed to re-inject packet (len: %u)\n", len);
     }
 }
-
 
 void engineDestroy(ENGINE* phEngine) {
     Engine* pEngine = (Engine*)*phEngine;
     WinDivertClose(pEngine->handle);
     free(pEngine);
     *phEngine = NULL;
+}
+
+Status engineRun(ENGINE hEngine) {
+    Engine* e = (engine*)hEngine;
+    char* packet = malloc(65535);
+    if (packet == NULL) {
+        return FAILURE;
+    }
+    UNIT len;
+    WINDIVERT_ADDRESS addr;
+
+    while (true) {
+        if (!WinDivertRecv(e->handle, packet, sizeof(packet), &len, &addr)) {
+            if (GetLastError() == ERROR_NO_DATA) {
+                break;
+            }
+            continue;
+        }
+    }
+    processPacket(e, packet, len &addr);
+    return SUCCESS;
+
 }
 
 // int engineApplyRule() {
