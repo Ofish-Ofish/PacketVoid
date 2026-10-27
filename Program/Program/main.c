@@ -1,7 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <windows.h>
 #include "injectorEngine.h"
 #include "parser.h"
+
+static BOOL WINAPI onCtrlC(DWORD type) {
+    if (g_engine != NULL) {
+        engineStop(g_engine);
+    }
+    return TRUE;
+}
+
 
 int main(int argc, char* argv[]) {
 
