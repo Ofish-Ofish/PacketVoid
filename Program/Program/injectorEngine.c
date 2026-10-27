@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <time.h>
 #pragma comment(lib, "ws2_32.lib")
 #include "injectorEngine.h"
 #include "rule.h"
@@ -50,6 +51,8 @@ ENGINE engineInit(RULELIST hRules, bool verbose) {
     if (pEngine == NULL) {
         return NULL;
     }
+
+    srand(time(NULL));
 
     pEngine->rules = hRules;
     pEngine->queue = NULL;
@@ -190,32 +193,30 @@ Status engineRun(ENGINE hEngine) {
 }
 
 static bool ruleMatches(FAULTRULE hRule, const PacketInfo* info) {
-    bool ruleMatch = true;
-
-    Proto protocol = getRuleProtocol(hrule);
-    if (info->proto != protocol && info->proto != ANY) {
-        ruleMatch = false;
+    Proto protocol = getRuleProtocol(hRule);
+    if (protocol != ANY && protocol != info->proto) {
+        return false;
     }
 
-    uint32_t ip = getRuleIp(hrule);
-    if (ip != info->srcIp && ip != info->dstIp) {
-        ruleMatch = false;
+    uint32_t ip = getRuleIp(hRule);
+    if (ip != 0 && ip != info->srcIp && ip != info->dstIp) {
+        return false;
     }
 
-    int port = getRulePort(hrule);
-    if (port != info->srcPort && port != info->DstPort) {
-        ruleMatch = false;
+    int port = getRulePort(hRule);
+    if (port != -1 && port != info->srcPort && port != info->dstPort) {
+        return false;
     }
 
-    Dir dir = getRuleDir(hrule);
-    if (dir == DIR_IN && info->outbound == true) {
-        ruleMatch = false;
+    Dir dir = getRuleDir(hRule);
+    if (dir == DIR_IN && info->outbound) {
+        return false;
     }
-    else if (dir = DIR_OUT && info->outbound == false) {
-        ruleMatch = false;
+    if (dir == DIR_OUT && !info->outbound) {
+        return false;
     }
-    
-    return ruleMatch;
+
+    return true;
 }
 
 void engineStop(ENGINE hEngine) {
@@ -228,5 +229,9 @@ void engineDestroy(ENGINE* phEngine) {
     WinDivertClose(pEngine->handle);
     free(pEngine);
     *phEngine = NULL;
+}
+
+static bool rollRate(int rate) {
+    return (rand() % 100) < rate;
 }
 
