@@ -42,7 +42,7 @@ static bool rollRate(int rate);
 
 static Status sendPacket(Engine* e, const void* packet, UINT len, const WINDIVERT_ADDRESS* addr);
 static void delaySendCallback(void* ctx, const void* packet, uint32_t len, const void* addr, size_t addrSize);
-static void applyRule(Engine* e, FAULTRULE r, char* packet, UINT len, WINDIVERT_ADDRESS* addr);
+static bool applyRule(Engine* e, FAULTRULE r, char* packet, UINT len, WINDIVERT_ADDRESS* addr);
 static void processPacket(Engine* e, char* packet, UINT len, WINDIVERT_ADDRESS* addr);
 
 ENGINE engineInit(RULELIST hRules, bool verbose) {
@@ -163,6 +163,21 @@ static void processPacket(Engine* e, char* packet, UINT len, WINDIVERT_ADDRESS* 
         if (e->verbose) {
             packetLog(&info);
         }
+
+        int count = ruleListGetSize(e->rules);
+        for (int i = 0; i < count; i++) {
+            FAULTRULE rule = ruleListAt(e->rules, i);
+
+            if (!ruleMatches(rule, &info)) {
+                continue;
+            }
+            if (!rollRate(getRuleRate(rule))) {
+                continue;
+            }
+            if (applyRule(e, rule, packet, len, addr)) {
+                return;
+            }
+        }
     }
 
     if (sendPacket(e, packet, len, addr) != SUCCESS && e->verbose) {
@@ -171,7 +186,7 @@ static void processPacket(Engine* e, char* packet, UINT len, WINDIVERT_ADDRESS* 
 }
 
 Status engineRun(ENGINE hEngine) {
-    Engine* e = (Engine*)hEngine;
+    Engine* pEngine = (Engine*)hEngine;
     char* packet = malloc(PACKET_BUF_SIZE);
     if (packet == NULL) {
         return FAILURE;
@@ -180,13 +195,13 @@ Status engineRun(ENGINE hEngine) {
     WINDIVERT_ADDRESS addr;
 
     while (true) {
-        if (!WinDivertRecv(e->handle, packet, PACKET_BUF_SIZE, &len, &addr)) {
+        if (!WinDivertRecv(pEngine->handle, packet, PACKET_BUF_SIZE, &len, &addr)) {
             if (GetLastError() == ERROR_NO_DATA) {
                 break;
             }
             continue;
         }
-        processPacket(e, packet, len, &addr);
+        processPacket(pEngine, packet, len, &addr);
     }
     free(packet);
     return SUCCESS;
@@ -220,8 +235,8 @@ static bool ruleMatches(FAULTRULE hRule, const PacketInfo* info) {
 }
 
 void engineStop(ENGINE hEngine) {
-    Engine* e = (Engine*)hEngine;
-    WinDivertClose(e->handle1, WINDIVERT_SHUTDOWN_RECV);
+    Engine* pEngine = (Engine*)hEngine;
+    WinDivertClose(pEngine->handle1, WINDIVERT_SHUTDOWN_RECV);
 }
 
 void engineDestroy(ENGINE* phEngine) {
@@ -235,3 +250,11 @@ static bool rollRate(int rate) {
     return (rand() % 100) < rate;
 }
 
+static bool applyRule(Engine* e, FAULTRULE r, char* packet, UINT len, WINDIVERT_ADDRESS* addr) {
+    switch (r) {
+        case DROP:
+            return true;
+        default:
+            return false;
+    }
+}
